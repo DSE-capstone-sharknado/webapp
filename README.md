@@ -9,7 +9,7 @@ I image this acting like an REST API where you can get rankings like:
 
 ```
 GET /users/[userid]/rankings?limit=10
-``
+```
 
 which would return the top ten items in json:
 
