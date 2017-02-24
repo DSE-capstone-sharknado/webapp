@@ -1,61 +1,120 @@
-from flask import Flask
+from flask import Flask, render_template, request, jsonify
+from flask_sqlalchemy import SQLAlchemy
+# from models import User
+import os
+import rec_sys
+import s3_utils
 app = Flask(__name__)
-import model
+app.config.from_object(os.environ['APP_SETTINGS'])
+
+db = SQLAlchemy(app)
+
+class User(db.Model):
+    __tablename__ = "users"
+    id = db.Column(db.Integer, primary_key=True)
+    aid = db.Column(db.String(12))
+
+    def __init__(self, aid):
+        self.aid = aid
+
+    def __repr__(self):
+        return '<aid %r>' % self.aid
+
+class ModelParamsSet(db.Model):
+    __tablename__ = "model_params_sets"
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255))
+    url = db.Column(db.String(255))
+
+    def __init__(self, asin):
+        self.asin = asin
+
+    def __repr__(self):
+        return '<E-mail %r>' % self.asin
+        
+class Item(db.Model):
+    __tablename__ = "items"
+    id = db.Column(db.Integer, primary_key=True)
+    asin = db.Column(db.String(12))
+    image_url = db.Column(db.String(255))
+
+    def __init__(self, asin):
+        self.asin = asin
+
+    def __repr__(self):
+        return '<asin %r>' % self.asin
 
 
 def connect_db():
   """Connects to the specific database."""
-  rv = sqlite3.connect(app.config['DATABASE'])
-  rv.row_factory = sqlite3.Row
-  return rv
+  pass
 
 
 def get_db():
   """Opens a new database connection if there is none yet for the
   current application context.
   """
-  if not hasattr(g, 'sqlite_db'):
-      g.sqlite_db = connect_db()
-  return g.sqlite_db
+  pass
 
-def get_model():
-  model_id = request.args.get('model_id', '')
-  if model_id is None:
-    db = get_db()
-    cur = db.execute('select id from models order by id desc limit 1')
-    model_id = cur.fetch()
-  return model.Model.factory(model_id)
+
   
   
 @app.route('/')
 def hello_world():
-    return 'Hello, World!'
+    return render_template('index.html.haml')
+    
+@app.route('/<name>')
+def hello_name(name):
+    return "Hello {}!".format(name)
 
 @app.route('/users/')
 def get_users():
-  pass
+  return "get_users"
 
-@app.route('/users/<id:uid>/')    
+@app.route('/users/<int:uid>/')    
 def get_user():
-  pass
+  return "get_user"
 
-@app.route('/users/<id:uid>/rankings')
-def get_rankings(uid):
-  model = get_model()
+@app.route('/users/<int:u>/rankings')
+def get_rankings(u):
+  
+  model_config_id = request.args.get('model_id', '')
+  model_config = ModelParamsSet.query.get(model_config_id)
+  params_url = model_config.url
+  item_bias, user_factors, item_factors = s3_utils.S3Utils.fetch_model_params(params_url)
+  
+  recsys = rec_sys.RecSys.factory(item_bias, user_factors, item_factors )
+  
   #run the ranking for this user acorss all products are return the top 10?
   #get all items
-  db = get_db()
-  cur = db.execute('select id from items')
-  items = cur.fetchall() 
-  rankings={}
+  items = Item.query.all()
+
+   
+  rankings=[]
   for i in items:
-    rank = model.predict(uid, i)
-    rankings.append(rank)
+    rank = recsys.rank(u, i.id)
+    rankings.append({'rank': rank, 'asin': i.asin, 'image_url': i.image_url})
+    
   #sort and get top-ten
-  rankings = sorted(rankings, key=rankings.get, reverse=True)
-  top_ten = rankings[0:10]
-  return top_ten
+  # rankings = sorted(rankings, key=rankings.get, reverse=True)
+  # top_ten = rankings
   
+  return jsonify(rankings)
+  
+  
+# Save new model
+@app.route('/models', methods=['POST'])
+def prereg():
+    email = None
+    if request.method == 'POST':
+        email = request.form['email']
+        # Check that email does not already exist (not a great query, but works)
+        if not db.session.query(User).filter(User.email == email).count():
+            reg = User(email)
+            db.session.add(reg)
+            db.session.commit()
+            return render_template('success.html')
+    return render_template('index.html')
   
     
     
