@@ -87,7 +87,7 @@ def get_rankings(u):
   
   #run the ranking for this user acorss all products are return the top 10?
   #get all items
-  items = Item.query.all()
+  items = Item.query.limit(900)
 
    
   rankings=[]
@@ -96,7 +96,7 @@ def get_rankings(u):
     rankings.append({'rank': rank, 'asin': i.asin, 'image_url': i.image_url})
     
   #sort and get top-ten
-  # rankings = sorted(rankings, key=rankings.get, reverse=True)
+  rankings = sorted(rankings, key=lambda r: r['rank'], reverse=True)
   # top_ten = rankings
   
   return jsonify(rankings)
