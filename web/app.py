@@ -87,13 +87,15 @@ def get_rankings(u):
   
   #run the ranking for this user acorss all products are return the top 10?
   #get all items
-  items = Item.query.limit(900)
+  items = Item.query.limit(954)
 
    
   rankings=[]
-  for i in items:
-    rank = recsys.rank(u, i.id)
-    rankings.append({'rank': rank, 'asin': i.asin, 'image_url': i.image_url})
+  for item in items:
+    # i=asin_lut[item.id]
+    i=item.id #temp hack until i add the LUT
+    rank = recsys.rank(u, i)
+    rankings.append({'rank': rank, 'asin': item.asin, 'image_url': item.image_url})
     
   #sort and get top-ten
   rankings = sorted(rankings, key=lambda r: r['rank'], reverse=True)

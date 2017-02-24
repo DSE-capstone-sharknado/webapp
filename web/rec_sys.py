@@ -25,4 +25,6 @@ class RecSys(object):
     
 
   def rank(self,u,i):
+    # raise Exception(len(self.item_bias)) #why is item bias only 955 long -- is this a weird set of params?
+    # raise Exception(self.item_factors.shape)#955x10
     return self.item_bias[i] + np.dot(self.user_factors[u],self.item_factors[i])
