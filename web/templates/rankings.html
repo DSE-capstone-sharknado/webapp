@@ -2,7 +2,8 @@
 {% block body %}
   
   <div id="useritems">
-    <h1> User ranked Items: </h1>
+    <h1> User {{user.aid}}/{{user.id}} ranked Items: </h1>
+    <h4>{{model_config.url}}</h4>
     <div class="row">
 
         {% for item in user_items %}

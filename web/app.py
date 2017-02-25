@@ -92,63 +92,47 @@ def get_user(u):
     result.append({'asin': item.asin, 'image_url': item.image_url})
   return jsonify(result)
 
+
+def top_n_rankings(u, n, model_config):
+  
+  params_url = model_config.url
+  item_bias, user_factors, item_factors = s3_utils.S3Utils.fetch_model_params(params_url)
+
+  recsys = rec_sys.RecSys.factory(item_bias, user_factors, item_factors )
+
+  items = Item.query.limit(Item.query.count()-1)
+ 
+  rankings=[]
+  for item in items:
+    # i=asin_lut[item.id]
+    i=item.id #temp hack until i add the LUT
+    rank = recsys.rank(u, i)
+    rankings.append({'rank': rank, 'asin': item.asin, 'image_url': item.image_url})
+  
+  #sort and get top-ten
+  rankings = sorted(rankings, key=lambda r: r['rank'], reverse=True)
+  rankings = rankings[0:n]
+  return rankings
+
 @app.route('/api/users/<int:u>/rankings')
 def api_get_rankings(u):
-  
-  model_config_id = request.args.get('model_id', '')
-  model_config = ModelParamsSet.query.get(model_config_id)
-  params_url = model_config.url
-  item_bias, user_factors, item_factors = s3_utils.S3Utils.fetch_model_params(params_url)
-  
-  recsys = rec_sys.RecSys.factory(item_bias, user_factors, item_factors )
-  
-  #run the ranking for this user acorss all products are return the top 10?
-  #get all items
-  items = Item.query.limit(954)
-
-   
-  rankings=[]
-  for item in items:
-    # i=asin_lut[item.id]
-    i=item.id #temp hack until i add the LUT
-    rank = recsys.rank(u, i)
-    rankings.append({'rank': rank, 'asin': item.asin, 'image_url': item.image_url})
-    
-  #sort and get top-ten
-  rankings = sorted(rankings, key=lambda r: r['rank'], reverse=True)
-  # top_ten = rankings
-  
-  return jsonify(rankings)
-
-@app.route('/users/<int:u>/rankings')
-def get_rankings(u):
-  model_config_id = request.args.get('model_id', '')
-  model_config = ModelParamsSet.query.get(model_config_id)
-  params_url = model_config.url
-  item_bias, user_factors, item_factors = s3_utils.S3Utils.fetch_model_params(params_url)
-  
-  recsys = rec_sys.RecSys.factory(item_bias, user_factors, item_factors )
-  
-  #run the ranking for this user acorss all products are return the top 10?
-  #get all items
-  items = Item.query.limit(954)
-
-   
-  rankings=[]
-  for item in items:
-    # i=asin_lut[item.id]
-    i=item.id #temp hack until i add the LUT
-    rank = recsys.rank(u, i)
-    rankings.append({'rank': rank, 'asin': item.asin, 'image_url': item.image_url})
-    
-  #sort and get top-ten
-  rankings = sorted(rankings, key=lambda r: r['rank'], reverse=True)
-  rankings = rankings[0:20]
-  
   user = User.query.get(u)
   user_items = user.reviews
+  rankings = top_n_rankings(u, 20)
   
-  return render_template("rankings.html",  rankings=rankings, user_items=user_items)
+  return jsonify(rankings)
+  
+@app.route('/users/<int:u>/rankings')
+def get_rankings(u):
+  user = User.query.get(u)
+  user_items = user.reviews
+  model_config_id = request.args.get('model_id', '')
+  model_config = ModelParamsSet.query.get(model_config_id)
+  
+  rankings = top_n_rankings(u, 20, model_config)
+
+  
+  return render_template("rankings.html", user=user, rankings=rankings, user_items=user_items, model_config=model_config)
   
 # Save new model
 @app.route('/models', methods=['POST'])

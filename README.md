@@ -47,3 +47,14 @@ Shell:
 ```
 docker-compose run web /bin/ash
 ```
+
+
+Query to get users w/ most reviews
+
+```
+select reviews.aid, users.id, count(*) cnt
+from reviews
+join users on users.aid = reviews.aid
+group by reviews.aid, users.id
+order by cnt desc
+```
