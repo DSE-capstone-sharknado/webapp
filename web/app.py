@@ -1,5 +1,8 @@
 from flask import Flask, render_template, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from jinja2 import Template
+
+import sys
 # from models import User
 import os
 import rec_sys
@@ -9,10 +12,18 @@ app.config.from_object(os.environ['APP_SETTINGS'])
 
 db = SQLAlchemy(app)
 
+reviews = db.Table('reviews',
+    db.Column('asin', db.String, db.ForeignKey('items.asin')),
+    db.Column('aid', db.String, db.ForeignKey('users.aid'))
+)
+
+
 class User(db.Model):
     __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True)
-    aid = db.Column(db.String(12))
+    aid = db.Column(db.String(30), unique=True)
+    reviews = db.relationship('Item', secondary=reviews,
+            backref=db.backref('users', lazy='dynamic'))
 
     def __init__(self, aid):
         self.aid = aid
@@ -35,7 +46,7 @@ class ModelParamsSet(db.Model):
 class Item(db.Model):
     __tablename__ = "items"
     id = db.Column(db.Integer, primary_key=True)
-    asin = db.Column(db.String(12))
+    asin = db.Column(db.String(12), unique=True)
     image_url = db.Column(db.String(255))
 
     def __init__(self, asin):
@@ -43,6 +54,7 @@ class Item(db.Model):
 
     def __repr__(self):
         return '<asin %r>' % self.asin
+
 
 
 def connect_db():
@@ -63,20 +75,25 @@ def get_db():
 def hello_world():
     return render_template('index.html.haml')
     
-@app.route('/<name>')
-def hello_name(name):
-    return "Hello {}!".format(name)
+# @app.route('/<name>')
+# def hello_name(name):
+#     return "Hello {}!".format(name)
 
 @app.route('/users/')
 def get_users():
   return "get_users"
 
-@app.route('/users/<int:uid>/')    
-def get_user():
-  return "get_user"
+@app.route('/api/users/<int:u>/')    
+def get_user(u):
+  user = User.query.get(u)
+  items = user.reviews
+  result=[]
+  for item in items:
+    result.append({'asin': item.asin, 'image_url': item.image_url})
+  return jsonify(result)
 
-@app.route('/users/<int:u>/rankings')
-def get_rankings(u):
+@app.route('/api/users/<int:u>/rankings')
+def api_get_rankings(u):
   
   model_config_id = request.args.get('model_id', '')
   model_config = ModelParamsSet.query.get(model_config_id)
@@ -102,7 +119,36 @@ def get_rankings(u):
   # top_ten = rankings
   
   return jsonify(rankings)
+
+@app.route('/users/<int:u>/rankings')
+def get_rankings(u):
+  model_config_id = request.args.get('model_id', '')
+  model_config = ModelParamsSet.query.get(model_config_id)
+  params_url = model_config.url
+  item_bias, user_factors, item_factors = s3_utils.S3Utils.fetch_model_params(params_url)
   
+  recsys = rec_sys.RecSys.factory(item_bias, user_factors, item_factors )
+  
+  #run the ranking for this user acorss all products are return the top 10?
+  #get all items
+  items = Item.query.limit(954)
+
+   
+  rankings=[]
+  for item in items:
+    # i=asin_lut[item.id]
+    i=item.id #temp hack until i add the LUT
+    rank = recsys.rank(u, i)
+    rankings.append({'rank': rank, 'asin': item.asin, 'image_url': item.image_url})
+    
+  #sort and get top-ten
+  rankings = sorted(rankings, key=lambda r: r['rank'], reverse=True)
+  rankings = rankings[0:20]
+  
+  user = User.query.get(u)
+  user_items = user.reviews
+  
+  return render_template("rankings.html",  rankings=rankings, user_items=user_items)
   
 # Save new model
 @app.route('/models', methods=['POST'])
