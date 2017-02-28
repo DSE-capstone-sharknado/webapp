@@ -45,7 +45,7 @@ Then it should be running on port 3000
 Shell:
 
 ```
-docker-compose run web /bin/ash
+docker-compose run --entrypoint /bin/ash web
 ```
 
 

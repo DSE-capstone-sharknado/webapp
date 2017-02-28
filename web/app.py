@@ -36,12 +36,13 @@ class ModelParamsSet(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255))
     url = db.Column(db.String(255))
+    gen = db.Column(db.String(100))
 
-    def __init__(self, asin):
-        self.asin = asin
+    def __init__(self, name):
+        self.name = name
 
     def __repr__(self):
-        return '<E-mail %r>' % self.asin
+        return '<Name %r>' % self.name
         
 class Item(db.Model):
     __tablename__ = "items"
@@ -95,8 +96,7 @@ def get_user(u):
 
 def top_n_rankings(u, n, model_config):
   
-  params_url = model_config.url
-  item_bias, user_factors, item_factors = s3_utils.S3Utils.fetch_model_params(params_url)
+  item_bias, user_factors, item_factors = s3_utils.S3Utils.fetch_model_params(model_config)
 
   recsys = rec_sys.RecSys.factory(item_bias, user_factors, item_factors )
 
