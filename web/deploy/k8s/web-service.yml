@@ -1,0 +1,19 @@
+# web-service.yml
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  labels:
+    name: web
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 80
+      targetPort: 80 
+      protocol: TCP
+  selector:
+    name: web
+    
+# kubectl create -f web-service.yml
+#target port is teh port flask is listeing on
+#port is the external web port

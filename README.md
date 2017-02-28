@@ -58,3 +58,8 @@ join users on users.aid = reviews.aid
 group by reviews.aid, users.id
 order by cnt desc
 ```
+
+## K8s shell
+
+kubectl exec -ti $POD --namespace sharknado-recsys -- bash
+
