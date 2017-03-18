@@ -148,6 +148,9 @@ def prereg():
             return render_template('success.html')
     return render_template('index.html')
   
+@app.route('/tsne')
+def tsne():
+  return render_template('tsne.html')
     
     
 if __name__ == '__main__':
