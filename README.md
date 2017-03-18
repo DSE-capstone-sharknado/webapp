@@ -63,3 +63,10 @@ order by cnt desc
 
 kubectl exec -ti $POD --namespace sharknado-recsys -- bash
 
+
+Export local DB
+pg_dump -U postgres -h localhost -c sharknado-web  > database.sql
+ 
+To k8s remote:
+
+cat database.sql | kubectl exec -i $POD --namespace sharknado-recsys -- psql -U postgres -d sharknado-web
